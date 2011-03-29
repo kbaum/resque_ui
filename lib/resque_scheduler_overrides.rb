@@ -1,7 +1,7 @@
 module ResqueScheduler
-  def schedule=(schedule_hash)
-    raise 'not implemented'
-  end
+  #def schedule=(schedule_hash)
+  #  raise 'not implemented'
+  #end
 
   # Returns the schedule hash
   def schedule
