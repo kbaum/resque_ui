@@ -1,6 +1,10 @@
 ResqueUi
 --------
 
+This is a fork of resque_ui that has been converted into a rails3 engine.  It has also removed many of the overrides for jruby threading compatibility
+as this just was not important to us and was causing some issues. 
+
+
 Resque UI is a Rails plugin port of the Sinatra app that is included in Chris Wanstrath's resque gem.  We love the gem and love the UI,
 but just didn't want to add Sinatra to our stack and wanted to be able to manage the queues from the UI.
 
