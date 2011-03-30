@@ -44,7 +44,7 @@
 <%= render(:partial => 'next_more', :locals => {:start => @start, :size => @size}) %>
 <% end %>
 
-<%= status_poll(@start) %>
+<%= raw(status_poll(@start)) %>
 
 <script type="text/javascript" charset="utf-8">
   jQuery(function($) {

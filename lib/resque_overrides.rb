@@ -24,9 +24,9 @@ module Resque
 
     # The string representation is the same as the id for this worker
     # instance. Can be used with `Worker.find`.
-    def to_s
-      @to_s || "#{hostname}(#{local_ip}):#{Process.pid}:#{Thread.current.object_id}:#{Thread.current[:queues]}"
-    end
+    #def to_s
+    #  @to_s || "#{hostname}(#{local_ip}):#{Process.pid}:#{Thread.current.object_id}:#{Thread.current[:queues]}"
+    #end
 
     alias_method :id, :to_s
 
@@ -52,11 +52,6 @@ module Resque
 
     def queues_in_pid
       workers_in_pid.collect { |w| w.queue }
-    end
-
-    #OVERRIDE for multithreaded workers
-    def queues
-      Thread.current[:queues] == "*" ? Resque.queues.sort : Thread.current[:queues].split(',')
     end
 
     # Runs all the methods needed when a worker begins its lifecycle.
@@ -127,63 +122,6 @@ module Resque
       end
     end
 
-    # This is the main workhorse method. Called on a Worker instance,
-    # it begins the worker life cycle.
-    #
-    # The following events occur during a worker's life cycle:
-    #
-    # 1. Startup:   Signals are registered, dead workers are pruned,
-    #               and this worker is registered.
-    # 2. Work loop: Jobs are pulled from a queue and processed.
-    # 3. Teardown:  This worker is unregistered.
-    #
-    # Can be passed an integer representing the polling frequency.
-    # The default is 5 seconds, but for a semi-active site you may
-    # want to use a smaller value.
-    #
-    # Also accepts a block which will be passed the job as soon as it
-    # has completed processing. Useful for testing.
-    #OVERRIDE for multithreaded workers
-    def work(interval = 5, &block)
-      $0 = "resque: Starting"
-      startup
-
-      loop do
-        break if @shutdown || Thread.current[:shutdown]
-
-        if not @paused and job = reserve
-          log "got: #{job.inspect}"
-          run_hook :before_fork
-          working_on job
-
-          if @child = fork
-            rand # Reseeding
-            procline "Forked #{@child} at #{Time.now.to_i}"
-            Process.wait
-          else
-            procline "Processing #{job.queue} since #{Time.now.to_i}"
-            perform(job, &block)
-            exit! unless @cant_fork
-          end
-
-          done_working
-          @child = nil
-        else
-          break if interval.to_i == 0
-          log! "Sleeping for #{interval.to_i}"
-          procline @paused ? "Paused" : "Waiting for #{@queues.join(',')}"
-          sleep interval.to_i
-        end
-      end
-      unregister_worker rescue nil
-      loop do
-        #hang onto the process until all threads are done
-        break if all_workers_in_pid_working.blank?
-        sleep interval.to_i
-      end
-    ensure
-      unregister_worker
-    end
 
     # logic for mappged_mget changed where it returns keys with nil values in latest redis gem.
     def self.working
@@ -212,13 +150,6 @@ module Resque
       job['status']
     end
 
-    def self.start(ips, queues)
-      if RAILS_ENV =~ /development|test/
-        Thread.new(queues) { |queue| system("rake QUEUE=#{queue} resque:work") }
-      else
-        Thread.new(queues, ips) { |queue, ip_list| system("cd #{RAILS_ROOT}; #{ResqueUi::Cap.path} #{RAILS_ENV} resque:work host=#{ip_list} queue=#{queue}") }
-      end
-    end
 
     def quit
       if RAILS_ENV =~ /development|test/

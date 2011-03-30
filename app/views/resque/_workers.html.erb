@@ -62,7 +62,6 @@
 
         <% host, pid, thread, queues = worker.to_s.split(':') %>
         <td class='where'><%=link_to("#{host}:#{pid}:#{thread}",:action => 'workers', :id => worker.to_s.gsub(/\./,'_'))%></td>
-        <td class='queues'><%= queues.split(',').map { |q| link_to(q, {:action => 'queues', :id => q}, :class => 'queue-tag')}.join('') %></td>
 
         <td class='process'>
           <% data = worker.processing || {} %>
@@ -90,7 +89,7 @@
       </tr>
     <% end %>
   </table>
-  <%=poll%>
+  <%=raw(poll)%>
   <br/>
   <hr />
   <h1 class='wi'>Start New Workers</h1>

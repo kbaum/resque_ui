@@ -8,6 +8,8 @@ class ResqueController < ApplicationController
 
   before_filter :check_connection
 
+  skip_before_filter :verify_authenticity_token
+
   verify :method => :post, :only => [:clear_failures, :clear_failure, :requeue_failure, :stop_worker, :restart_worker,
                                      :start_worker, :schedule_requeue, :remove_from_schedule, :add_scheduled_job,
                                      :start_scheduler, :stop_scheduler, :requeue_failures_in_class,
@@ -20,11 +22,12 @@ class ResqueController < ApplicationController
   end
 
   def working
-    render(:partial => 'working', :layout => 'resque')
+    #render(:partial => 'working', :layout => 'resque')
+    render(:_working)
   end
 
   def queues
-    render(:partial => 'queues', :layout => 'resque', :locals => {:partial => nil})
+    render(:_queues,  :locals => {:partial => nil})
   end
 
   def poll
@@ -216,11 +219,14 @@ class ResqueController < ApplicationController
   end
 
   def remove_failure_from_list(payload)
-    Resque.list_range(:failed, 0, -1).each do |f|
-
-      if f["payload"] == payload
-        Resque.redis.lrem(:failed, 0, f.to_json)
-      end
+    count = Resque::Failure.count - 1
+    loop do
+       f =  Resque::Failure.all(count, 1)
+       if f && f['payload'] == payload
+         Resque.redis.lrem(:failed, 0, f.to_json)
+       end
+       count = count - 1
+       break if count < 0
     end
   end
 
