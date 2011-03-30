@@ -13,7 +13,7 @@
       <ul class='nav'>
         <li><%=link_to("Home",url_for('/'))%></li>
         <% Resque::Server.tabs.each do |name| -%>
-        <%= tab name -%>
+        <%= raw(tab name) -%>
         <%end-%>
       </ul>
     </div>

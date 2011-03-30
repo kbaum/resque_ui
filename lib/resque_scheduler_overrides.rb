@@ -4,15 +4,15 @@ module ResqueScheduler
   #end
 
   # Returns the schedule hash
-  def schedule
+  #def schedule
     #the scheduler gem expects a hash, but it's now stored in
     #redis as an array.
-    hash = {}
-    Resque.list_range(:scheduled, 0, -0).each do |job|
-      hash.merge! job
-    end
-    hash
-  end
+  #  hash = {}
+  #  Resque.list_range(:scheduled, 0, -0).each do |job|
+  #    hash.merge! job
+  #  end
+  #  hash
+  #end
 
   def self.start(ips)
     if RAILS_ENV =~ /development|test/
