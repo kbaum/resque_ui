@@ -30,9 +30,9 @@ module Resque
 
     alias_method :id, :to_s
 
-    def pid
-      to_s.split(':').second
-    end
+    #def pid
+    #  to_s.split(':').second
+    #end
 
     def thread
       to_s.split(':').third
@@ -54,110 +54,17 @@ module Resque
       workers_in_pid.collect { |w| w.queue }
     end
 
-    # Runs all the methods needed when a worker begins its lifecycle.
-    #OVERRIDE for multithreaded workers
-    def startup
-      enable_gc_optimizations
-      if Thread.current == Thread.main
-        register_signal_handlers
-        prune_dead_workers
-      end
-      run_hook :before_first_fork
-      register_worker
-
-      # Fix buffering so we can `rake resque:work > resque.log` and
-      # get output from the child in there.
-      $stdout.sync = true
-    end
-
-    # Schedule this worker for shutdown. Will finish processing the
-    # current job.
-    #OVERRIDE for multithreaded workers
-    def shutdown
-      log 'Exiting...'
-      Thread.list.each { |t| t[:shutdown] = true }
-      @shutdown = true
-    end
-
-    # Looks for any workers which should be running on this server
-    # and, if they're not, removes them from Redis.
-    #
-    # This is a form of garbage collection. If a server is killed by a
-    # hard shutdown, power failure, or something else beyond our
-    # control, the Resque workers will not die gracefully and therefor
-    # will leave stale state information in Redis.
-    #
-    # By checking the current Redis state against the actual
-    # environment, we can determine if Redis is old and clean it up a bit.
-    def prune_dead_workers
-      Worker.all.each do |worker|
-        host, pid, thread, queues = worker.id.split(':')
-        next unless host.include?(hostname)
-        next if worker_pids.include?(pid)
-        log! "Pruning dead worker: #{worker}"
-        worker.unregister_worker
-      end
-    end
-
     def all_workers_in_pid_working
       workers_in_pid.select { |w| (hash = w.processing) && !hash.empty? }
     end
 
-    # Jruby won't allow you to trap the QUIT signal, so we're changing the INT signal to replace it for Jruby.
-    def register_signal_handlers
-      trap('TERM') { shutdown! }
-      trap('INT') { shutdown }
 
-      begin
-        s = trap('QUIT') { shutdown }
-        warn "Signal QUIT not supported." unless s
-        s = trap('USR1') { kill_child }
-        warn "Signal USR1 not supported." unless s
-        s = trap('USR2') { pause_processing }
-        warn "Signal USR2 not supported." unless s
-        s = trap('CONT') { unpause_processing }
-        warn "Signal CONT not supported." unless s
-      rescue ArgumentError
-        warn "Signals QUIT, USR1, USR2, and/or CONT not supported."
-      end
-    end
-
-
-    # logic for mappged_mget changed where it returns keys with nil values in latest redis gem.
-    def self.working
-      names = all
-      return [] unless names.any?
-      names.map! { |name| "worker:#{name}" }
-      redis.mapped_mget(*names).map do |key, value|
-        find key.sub("worker:", '') unless value.nil?
-      end.compact
-    end
-
-    # Returns an array of string pids of all the other workers on this
-    # machine. Useful when pruning dead workers on startup.
-    def worker_pids
-      `ps -A -o pid,command | grep [r]esque`.split("\n").map do |line|
-        line.split(' ')[0]
-      end
-    end
-
-    def status=(status)
-      data = encode(job.merge('status' => status))
-      redis.set("worker:#{self}", data)
-    end
 
     def status
       job['status']
     end
 
 
-    def quit
-      if RAILS_ENV =~ /development|test/
-        system("kill -INT  #{self.pid}")
-      else
-        system("cd #{RAILS_ROOT}; #{ResqueUi::Cap.path} #{RAILS_ENV} resque:quit_worker pid=#{self.pid} host=#{self.ip}")
-      end
-    end
 
     def restart
       queues = self.queues_in_pid.join('#')
@@ -168,18 +75,7 @@ module Resque
   end
 
 
-  class Job
-    # Attempts to perform the work represented by this job instance.
-    # Calls #perform on the class given in the payload with the
-    # arguments given in the payload.
-    # The worker is passed in so the status can be set for the UI to display.
-    def perform
-      args ? payload_class.perform(*args) { |status| self.worker.status = status } : payload_class.perform { |status| self.worker.status = status }
-    end
 
-  end
-
-  Resque::Server.tabs << 'Statuses'
 
   module Failure
 
